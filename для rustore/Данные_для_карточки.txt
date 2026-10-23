@@ -75,6 +75,7 @@ android.permission.MANAGE_EXTERNAL_STORAGE
 
 Разработчик: (указать имя или организацию)
 Контактный e-mail: fandiplegend@gmail.com
-Сайт: (необязательно)
+Сайт: https://github.com/mousrobys/SpacePilot-Free
+Исходный код: https://github.com/mousrobys/SpacePilot-Free
 Страна: Россия
 Политика конфиденциальности (URL): (указать публичный адрес)
