@@ -14,3 +14,5 @@ release/
 keystore.properties
 apk/
 *.log
+# локальные дистрибутивные материалы (не для репозитория)
+для rustore/

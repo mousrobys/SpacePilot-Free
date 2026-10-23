@@ -1,24 +1,31 @@
 # SpacePilot Free
 
+<p align="center">
+  <img src=".github/icon.png" alt="SpacePilot Free" width="160">
+</p>
+
 Локальный офлайн-инструмент для анализа памяти Android-устройства: обзор занятого места, поиск больших файлов, поиск дубликатов по содержимому (SHA-256), файловый менеджер через Storage Access Framework и раздел APK. Интерфейс на Jetpack Compose (Material 3), русский язык по умолчанию, английский — дополнительный.
 
 Приложение не имеет разрешения `INTERNET`, не содержит рекламы, аналитики, телеметрии, регистрации и подписок. Все операции выполняются на устройстве.
 
-Исходный код: https://github.com/mousrobys/SpacePilot-Free
-Контакт: fandiplegend@gmail.com
+- Исходный код: https://github.com/mousrobys/SpacePilot-Free
+- Контакт: fandiplegend@gmail.com
+- Лицензия: [MIT](LICENSE)
 
 ## Статус сборки
 
-| Артефакт | Путь | Размер | SHA-256 |
-|---|---|---|---|
-| Подписанный release APK (для установки) | `apk/SpacePilot-Free-1.0.0-release.apk` | 11 720 980 байт | `6DD61147DB6184FE68E6932C491DE05A3134BD8662EB75D096939DAC81E316A6` |
-| Debug APK | `app/build/outputs/apk/debug/app-debug.apk` | 22 459 727 байт | — |
+Проект собирается и проверяется локально. Готовые APK в репозиторий не выкладываются (см. `.gitignore`).
 
-Release APK подписан ключом `keys/spacepilot-release.jks` (v2-схема) и устанавливается на устройство. SHA-256 release-файла: `6DD61147DB6184FE68E6932C491DE05A3134BD8662EB75D096939DAC81E316A6`. Параметры подписи по умолчанию лежат в `keystore.properties`; их можно переопределить свойствами `-PSPACEPILOT_*`.
+| Проверка | Результат |
+|---|---|
+| `:app:assembleDebug` | Успешно |
+| `:app:assembleRelease` | Успешно (подпись при наличии ключа) |
+| `:app:testDebugUnitTest` | 8 тестов, 0 ошибок |
+| `:app:lintDebug` | 0 ошибок |
 
-> Ключ в `keys/` создан для разработки. Для публикации в RuStore сгенерируйте собственный ключ и не теряйте его — без него обновления выпустить нельзя. Файлы `keystore.properties`, `keys/` и `apk/` добавлены в `.gitignore`.
+Подробности и ограничения: `docs/BUILD_REPORT.md`.
 
-8 JVM-тестов проходят, `lintDebug` — 0 ошибок (60 предупреждений). Подробности и ограничения: `docs/BUILD_REPORT.md`.
+> Ключ подписи и APK в репозиторий не попадают. Для публикации сгенерируйте собственный ключ и не теряйте его — без него обновления выпустить нельзя. Файлы `keystore.properties`, `keys/` и `apk/` добавлены в `.gitignore`.
 
 ## Возможности
 
@@ -80,21 +87,17 @@ Release-сборка подписывается автоматически па�
 
 ## Установка APK
 
-Готовый подписанный файл: `apk/SpacePilot-Free-1.0.0-release.apk`.
+Соберите APK из исходников (см. раздел «Сборка») — готовый файл появится в `app/build/outputs/apk/`.
 
 ```powershell
-& "C:\Users\<user>\AppData\Local\Android\Sdk\platform-tools\adb.exe" install -r "apk\SpacePilot-Free-1.0.0-release.apk"
+& "C:\Users\<user>\AppData\Local\Android\Sdk\platform-tools\adb.exe" install -r "app\build\outputs\apk\release\app-release.apk"
 ```
 
-Или скопировать APK на устройство и открыть, разрешив установку из неизвестных источников.
+Или скопируйте APK на устройство и откройте его, разрешив установку из неизвестных источников.
 
-Debug-версия (`app-debug.apk`) имеет applicationId `com.spacepilot.free.debug` и может стоять рядом с release-версией:
+Debug-версия имеет applicationId `com.spacepilot.free.debug` и может стоять рядом с release-версией: `app\build\outputs\apk\debug\app-debug.apk`.
 
-```powershell
-adb install -r "app\build\outputs\apk\debug\app-debug.apk"
-```
-
-Если система пишет «пакет недействителен»: скачайте APK заново и сверьте SHA-256, а также удалите ранее установленную версию с тем же пакетом.
+Если система пишет «пакет недействителен»: пересоберите APK и сверьте размер, а также удалите ранее установленную версию с тем же пакетом.
 
 ## Структура проекта
 
@@ -109,7 +112,9 @@ app/src/main/java/com/spacepilot/free/
   ui/theme/        тема Material 3
   util/            форматирование, типы файлов, разрешения, локаль, интенты
   viewmodel/       AppViewModel
-docs/              материалы для RuStore, политика конфиденциальности, отчёт о сборке
+docs/              политика конфиденциальности, отчёт о сборке
+.github/icon.png   иконка приложения
+LICENSE            лицензия MIT
 ```
 
 ## Ограничения
@@ -124,8 +129,11 @@ docs/              материалы для RuStore, политика конф�
 
 ## Материалы для публикации
 
-- `docs/RUSTORE.md` — готовые данные для RuStore: название, все описания, разрешения, техданные, чек-лист загрузки.
+- `docs/RUSTORE.md` — готовые данные для RuStore: название, описания, разрешения, техданные.
 - `docs/PRIVACY_POLICY_RU.md` — политика конфиденциальности (русский).
 - `docs/PRIVACY_POLICY_EN.md` — privacy policy (English).
-- `docs/store/icon-512.png` — иконка 512×512 для магазина.
 - `docs/BUILD_REPORT.md` — отчёт о сборке и проверке.
+
+## Лицензия
+
+Проект распространяется под лицензией [MIT](LICENSE).
