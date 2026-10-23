@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="28%" r="85%">
+      <stop offset="0%" stop-color="#123A5A"/>
+      <stop offset="55%" stop-color="#0A1E33"/>
+      <stop offset="100%" stop-color="#06111F"/>
+    </radialGradient>
+    <linearGradient id="folder" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5BF0E3"/>
+      <stop offset="100%" stop-color="#2CCFC5"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="108" height="108" fill="url(#bg)"/>
+
+  <g opacity="0.55">
+    <circle cx="20" cy="24" r="1.1" fill="#8CF8EF"/>
+    <circle cx="88" cy="20" r="0.9" fill="#8CF8EF"/>
+    <circle cx="94" cy="88" r="1.2" fill="#4CA6FF"/>
+    <circle cx="14" cy="86" r="0.8" fill="#8CF8EF"/>
+  </g>
+
+  <path d="M16,54 C16,37 33,27 54,27 C75,27 92,37 92,54 C92,71 75,81 54,81 C33,81 16,71 16,54 Z"
+        fill="none" stroke="#2CA8FF" stroke-linecap="round" stroke-width="2.2"/>
+  <g transform="rotate(-28 54 54)">
+    <path d="M23,54 C23,40 37,31 54,31 C71,31 85,40 85,54 C85,68 71,77 54,77 C37,77 23,68 23,54 Z"
+          fill="none" stroke="#4FE7DB" stroke-linecap="round" stroke-width="1.5"/>
+  </g>
+
+  <path d="M33,47 C33,44.8 34.8,43 37,43 L47,43 L52,48 L70,48 C72.2,48 74,49.8 74,52 L74,56 L33,56 Z"
+        fill="#2CCFC5"/>
+  <path d="M33,55 L74,55 L74,67 C74,69.8 71.8,72 69,72 L38,72 C35.2,72 33,69.8 33,67 Z"
+        fill="url(#folder)"/>
+  <path d="M39,61 L68,61 C69.1,61 70,61.9 70,63 C70,64.1 69.1,65 68,65 L39,65 C37.9,65 37,64.1 37,63 C37,61.9 37.9,61 39,61 Z"
+        fill="#0A3B57"/>
+
+  <circle cx="84" cy="31" r="3" fill="#8CF8EF"/>
+  <circle cx="22" cy="72" r="2.2" fill="#2CA8FF"/>
+</svg>
