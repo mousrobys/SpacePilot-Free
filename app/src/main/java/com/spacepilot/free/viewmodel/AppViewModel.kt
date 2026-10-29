@@ -9,7 +9,9 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.spacepilot.free.R
+import com.spacepilot.free.data.ApkSecurityRepository
 import com.spacepilot.free.data.CachedScan
+import com.spacepilot.free.data.CloudReputationRepository
 import com.spacepilot.free.data.FileAnalysisRepository
 import com.spacepilot.free.data.FileOperationsRepository
 import com.spacepilot.free.data.HashRepository
@@ -20,10 +22,13 @@ import com.spacepilot.free.data.SafScanResult
 import com.spacepilot.free.data.ScanCacheRepository
 import com.spacepilot.free.data.SettingsRepository
 import com.spacepilot.free.data.StorageRepository
+import com.spacepilot.free.data.model.ApkRisk
+import com.spacepilot.free.data.model.ApkScanState
 import com.spacepilot.free.data.model.AppSettings
 import com.spacepilot.free.data.model.BrowserNode
 import com.spacepilot.free.data.model.BrowserState
 import com.spacepilot.free.data.model.CategoryStat
+import com.spacepilot.free.data.model.CloudReputationState
 import com.spacepilot.free.data.model.CopyOperation
 import com.spacepilot.free.data.model.DuplicateGroup
 import com.spacepilot.free.data.model.DuplicateUiState
@@ -39,8 +44,10 @@ import com.spacepilot.free.data.model.ScanSummary
 import com.spacepilot.free.data.model.ScanUiState
 import com.spacepilot.free.data.model.StorageInfo
 import com.spacepilot.free.data.model.ThemeMode
+import com.spacepilot.free.data.model.ZipRequest
 import com.spacepilot.free.util.LocaleUtils
 import com.spacepilot.free.util.PermissionUtils
+import com.spacepilot.free.util.RenamePattern
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,6 +59,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 sealed interface UiEvent {
@@ -60,6 +69,14 @@ sealed interface UiEvent {
     data object DeleteCancelled : UiEvent
     data class Copied(val name: String, val moved: Boolean) : UiEvent
     data class CopyFailed(val reason: String?) : UiEvent
+    data class Renamed(val name: String) : UiEvent
+    data class RenameFailed(val reason: String?) : UiEvent
+    data class FolderCreated(val name: String) : UiEvent
+    data class FolderCreateFailed(val reason: String?) : UiEvent
+    data class BatchRenamed(val renamed: Int, val failed: Int) : UiEvent
+    data class ZipCreated(val name: String, val bytes: Long, val failed: Int) : UiEvent
+    data class ZipFailed(val reason: String?) : UiEvent
+    data class ApkScanned(val name: String) : UiEvent
     data object HistoryCleared : UiEvent
     data class Message(val text: String) : UiEvent
 }
@@ -74,10 +91,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val analysisRepository = FileAnalysisRepository(app)
     private val operationsRepository = FileOperationsRepository(app)
     private val cacheRepository = ScanCacheRepository(app)
+    private val securityRepository = ApkSecurityRepository(app)
+    private val cloudRepository = CloudReputationRepository()
 
     val settings: StateFlow<AppSettings> = settingsRepository.settings
     val folderUri: StateFlow<String?> = settingsRepository.folderUri
     val recentOperations: StateFlow<List<OperationRecord>> = settingsRepository.operations
+    val cloudEnabled: StateFlow<Boolean> = settingsRepository.cloudEnabled
+    val cloudApiKey: StateFlow<String?> = settingsRepository.cloudApiKey
 
     private val _storageInfo = MutableStateFlow(StorageInfo())
     val storageInfo: StateFlow<StorageInfo> = _storageInfo.asStateFlow()
@@ -106,6 +127,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _copyPending = MutableStateFlow<CopyOperation?>(null)
     val copyPending: StateFlow<CopyOperation?> = _copyPending.asStateFlow()
 
+    private val _zipPending = MutableStateFlow<ZipRequest?>(null)
+    val zipPending: StateFlow<ZipRequest?> = _zipPending.asStateFlow()
+
+    private val _apkScans = MutableStateFlow<Map<String, ApkScanState>>(emptyMap())
+    val apkScans: StateFlow<Map<String, ApkScanState>> = _apkScans.asStateFlow()
+
     private val _events = Channel<UiEvent>(Channel.BUFFERED)
     val events: Flow<UiEvent> = _events.receiveAsFlow()
 
@@ -115,6 +142,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var scanJob: Job? = null
     private var duplicateJob: Job? = null
     private var analysisJob: Job? = null
+    private var apkScanJob: Job? = null
     private var pendingSystemDelete: PendingSystemDelete? = null
     private var cacheLoaded = false
 
@@ -454,6 +482,222 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _copyPending.value = null
     }
 
+    fun renameEntry(file: FileEntry, newName: String) {
+        val clean = newName.trim()
+        if (clean.isEmpty() || clean == file.name) return
+        viewModelScope.launch {
+            val result = safRepository.rename(Uri.parse(file.uri), clean)
+            if (result.success) {
+                val newUri = result.newUri ?: file.uri
+                applyRenamed(file.uri, clean, newUri)
+                settingsRepository.addOperation(
+                    OperationRecord(
+                        timestamp = System.currentTimeMillis(),
+                        type = OperationType.RENAME,
+                        description = localizedString(R.string.operation_rename, file.name, clean),
+                        bytes = file.size
+                    )
+                )
+                if (_browser.value.items.any { it.uri == file.uri }) refreshBrowser()
+                _events.send(UiEvent.Renamed(clean))
+            } else {
+                _events.send(UiEvent.RenameFailed(result.message))
+            }
+        }
+    }
+
+    fun createFolder(name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        val treeString = _browser.value.rootUri ?: folderUri.value ?: return
+        val treeUri = Uri.parse(treeString)
+        val parentUri = _browser.value.currentUri?.let(Uri::parse)
+        viewModelScope.launch {
+            val result = safRepository.createDirectory(treeUri, parentUri, clean)
+            if (result.success) {
+                refreshBrowser()
+                _events.send(UiEvent.FolderCreated(clean))
+            } else {
+                _events.send(UiEvent.FolderCreateFailed(result.message))
+            }
+        }
+    }
+
+    fun batchRename(files: List<FileEntry>, pattern: String) {
+        if (files.isEmpty()) return
+        viewModelScope.launch {
+            var renamed = 0
+            var failed = 0
+            files.forEachIndexed { index, file ->
+                val newName = RenamePattern.apply(pattern, file.name, index + 1, files.size)
+                if (newName == file.name) {
+                    renamed++
+                    return@forEachIndexed
+                }
+                val result = safRepository.rename(Uri.parse(file.uri), newName)
+                if (result.success) {
+                    renamed++
+                    applyRenamed(file.uri, newName, result.newUri ?: file.uri)
+                } else {
+                    failed++
+                }
+            }
+            settingsRepository.addOperation(
+                OperationRecord(
+                    timestamp = System.currentTimeMillis(),
+                    type = OperationType.RENAME,
+                    description = localizedString(R.string.operation_batch_rename, renamed),
+                    bytes = 0L
+                )
+            )
+            refreshBrowser()
+            _events.send(UiEvent.BatchRenamed(renamed, failed))
+        }
+    }
+
+    fun requestZip(files: List<FileEntry>) {
+        val real = files.filter { !it.isDirectory }
+        if (real.isEmpty()) return
+        _zipPending.value = ZipRequest.Pending(real)
+    }
+
+    fun cancelZip() {
+        _zipPending.value = null
+    }
+
+    fun onZipDestinationSelected(destination: Uri) {
+        val pending = _zipPending.value as? ZipRequest.Pending ?: return
+        _zipPending.value = null
+        viewModelScope.launch {
+            val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+            val archiveName = "SpacePilot-$stamp.zip"
+            val result = safRepository.zipFiles(pending.files, destination, archiveName)
+            if (result.success) {
+                val display = result.newUri
+                    ?.let { Uri.parse(it).lastPathSegment }
+                    ?.substringAfterLast('/')
+                    ?: archiveName
+                settingsRepository.addOperation(
+                    OperationRecord(
+                        timestamp = System.currentTimeMillis(),
+                        type = OperationType.ZIP,
+                        description = localizedString(R.string.operation_zip, display),
+                        bytes = result.bytes
+                    )
+                )
+                _events.send(UiEvent.ZipCreated(display, result.bytes, result.failed))
+            } else {
+                _events.send(UiEvent.ZipFailed(result.message))
+            }
+        }
+    }
+
+    fun scanApk(file: FileEntry) {
+        if (_apkScans.value[file.uri]?.loading == true) return
+        if (apkScanJob?.isActive == true) return
+        apkScanJob = viewModelScope.launch { scanApkInternal(file) }
+    }
+
+    fun scanAllApks(files: List<FileEntry>) {
+        if (files.isEmpty() || apkScanJob?.isActive == true) return
+        apkScanJob = viewModelScope.launch {
+            files.forEach { file -> scanApkInternal(file) }
+        }
+    }
+
+    fun cancelApkScans() {
+        apkScanJob?.cancel()
+        apkScanJob = null
+    }
+
+    private suspend fun scanApkInternal(file: FileEntry) {
+        _apkScans.value = _apkScans.value + (file.uri to ApkScanState(file = file, loading = true))
+        try {
+            val checksum = analysisRepository.sha256(file)
+            val report = securityRepository.scan(file, checksum)
+            _apkScans.value = _apkScans.value + (
+                file.uri to ApkScanState(
+                    file = file,
+                    loading = false,
+                    report = report,
+                    cloud = CloudReputationState.Idle
+                )
+                )
+            settingsRepository.addOperation(
+                OperationRecord(
+                    timestamp = System.currentTimeMillis(),
+                    type = OperationType.APK_SCAN,
+                    description = localizedString(R.string.operation_apk_scan, file.name),
+                    bytes = file.size
+                )
+            )
+            _events.send(UiEvent.ApkScanned(file.name))
+
+            if (settingsRepository.cloudEnabled.value && checksum.isNotBlank()) {
+                val key = settingsRepository.cloudApiKey.value
+                if (key.isNullOrBlank()) {
+                    updateCloud(file.uri, CloudReputationState.Error("API key is missing", unauthorized = true))
+                } else {
+                    updateCloud(file.uri, CloudReputationState.Loading)
+                    val cloud = cloudRepository.lookup(checksum, key)
+                    updateCloud(file.uri, cloud)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _apkScans.value = _apkScans.value + (
+                file.uri to ApkScanState(
+                    file = file,
+                    loading = false,
+                    report = reportOfFailure(file, e.localizedMessage),
+                    cloud = CloudReputationState.Idle
+                )
+                )
+        }
+    }
+
+    private fun reportOfFailure(file: FileEntry, message: String?) = com.spacepilot.free.data.model.ApkSecurityReport(
+        error = message ?: localizedString(R.string.analysis_failed)
+    )
+
+    private fun updateCloud(uri: String, state: CloudReputationState) {
+        val current = _apkScans.value[uri] ?: return
+        _apkScans.value = _apkScans.value + (uri to current.copy(cloud = state))
+    }
+
+    fun setCloudEnabled(enabled: Boolean) = settingsRepository.setCloudEnabled(enabled)
+
+    fun setCloudApiKey(key: String?) = settingsRepository.setCloudApiKey(key)
+
+    private fun applyRenamed(oldUri: String, newName: String, newUri: String) {
+        val updatedFiles = _allFiles.value.map { entry ->
+            if (entry.uri == oldUri) entry.copy(uri = newUri, name = newName) else entry
+        }
+        _allFiles.value = updatedFiles
+        val current = _summary.value ?: return
+        val updated = current.copy(
+            largeFiles = current.largeFiles.map { entry ->
+                if (entry.uri == oldUri) entry.copy(uri = newUri, name = newName) else entry
+            },
+            duplicateGroups = current.duplicateGroups.map { group ->
+                group.copy(
+                    files = group.files.map { entry ->
+                        if (entry.uri == oldUri) entry.copy(uri = newUri, name = newName) else entry
+                    }
+                )
+            }
+        )
+        _summary.value = updated
+        viewModelScope.launch { cacheRepository.save(updated, updatedFiles) }
+        val scans = _apkScans.value
+        if (scans.containsKey(oldUri)) {
+            val state = scans[oldUri]!!
+            val migrated = scans - oldUri + (newUri to state.copy(file = state.file.copy(uri = newUri, name = newName)))
+            _apkScans.value = migrated
+        }
+    }
+
     fun deleteFiles(files: List<FileEntry>) {
         if (files.isEmpty()) return
         viewModelScope.launch {
@@ -627,6 +871,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _duplicates.value = DuplicateUiState.NotAnalyzed
         _scanState.value = ScanUiState.Idle
         _analysis.value = null
+        apkScanJob?.cancel()
+        apkScanJob = null
+        _apkScans.value = emptyMap()
         viewModelScope.launch { _events.send(UiEvent.HistoryCleared) }
     }
 
@@ -634,6 +881,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         scanJob?.cancel()
         duplicateJob?.cancel()
         analysisJob?.cancel()
+        apkScanJob?.cancel()
         super.onCleared()
     }
 

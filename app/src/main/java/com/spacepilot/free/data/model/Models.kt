@@ -134,9 +134,12 @@ enum class OperationType {
     DELETE,
     MOVE,
     COPY,
+    RENAME,
+    ZIP,
     SCAN,
     CHECKSUM,
-    APK_INSTALL
+    APK_INSTALL,
+    APK_SCAN
 }
 
 data class OperationRecord(
@@ -209,3 +212,53 @@ data class PendingSystemDelete(
 sealed interface CopyOperation {
     data class Pending(val source: FileEntry, val move: Boolean) : CopyOperation
 }
+
+enum class ApkRisk {
+    LOW,
+    MEDIUM,
+    HIGH,
+    UNKNOWN
+}
+
+data class ApkSecurityReport(
+    val packageName: String? = null,
+    val label: String? = null,
+    val targetSdk: Int? = null,
+    val signatureSha256: String? = null,
+    val signatureSubject: String? = null,
+    val debugCertificate: Boolean = false,
+    val debuggable: Boolean = false,
+    val dangerousPermissions: List<String> = emptyList(),
+    val exportedComponents: List<String> = emptyList(),
+    val risk: ApkRisk = ApkRisk.UNKNOWN,
+    val score: Int = 0,
+    val sha256: String? = null,
+    val error: String? = null
+)
+
+sealed interface CloudReputationState {
+    data object Idle : CloudReputationState
+    data object Loading : CloudReputationState
+    data class Success(
+        val malicious: Int,
+        val suspicious: Int,
+        val harmless: Int,
+        val undetected: Int,
+        val name: String?
+    ) : CloudReputationState
+
+    data object NotFound : CloudReputationState
+    data class Error(val message: String, val unauthorized: Boolean = false) : CloudReputationState
+}
+
+data class ApkScanState(
+    val file: FileEntry,
+    val loading: Boolean = true,
+    val report: ApkSecurityReport? = null,
+    val cloud: CloudReputationState = CloudReputationState.Idle
+)
+
+sealed interface ZipRequest {
+    data class Pending(val files: List<FileEntry>) : ZipRequest
+}
+

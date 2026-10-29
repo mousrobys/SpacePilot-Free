@@ -12,6 +12,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.coroutines.coroutineContext
 
 data class SafScanResult(
@@ -30,6 +32,15 @@ data class CopyResult(
     val success: Boolean,
     val message: String? = null,
     val newUri: String? = null
+)
+
+data class SafOperationResult(
+    val success: Boolean,
+    val message: String? = null,
+    val newUri: String? = null,
+    val bytes: Long = 0L,
+    val processed: Int = 0,
+    val failed: Int = 0
 )
 
 class SafRepository(context: Context) {
@@ -193,6 +204,170 @@ class SafRepository(context: Context) {
             runCatching { target.delete() }
             CopyResult(false, e.localizedMessage)
         }
+    }
+
+    suspend fun rename(uri: Uri, newName: String): SafOperationResult = withContext(Dispatchers.IO) {
+        val clean = newName.trim()
+        if (clean.isEmpty()) {
+            return@withContext SafOperationResult(false, "The name must not be empty")
+        }
+        if (clean.contains('/') || clean.contains('\\')) {
+            return@withContext SafOperationResult(false, "The name must not contain slashes")
+        }
+        try {
+            val renamed = DocumentsContract.renameDocument(resolver, uri, clean)
+            if (renamed == null) {
+                SafOperationResult(false, "The provider refused to rename the item")
+            } else {
+                SafOperationResult(true, newUri = renamed.toString())
+            }
+        } catch (e: Exception) {
+            SafOperationResult(false, e.localizedMessage)
+        }
+    }
+
+    suspend fun createDirectory(
+        treeUri: Uri,
+        parentUri: Uri?,
+        name: String
+    ): SafOperationResult = withContext(Dispatchers.IO) {
+        val clean = name.trim()
+        if (clean.isEmpty()) {
+            return@withContext SafOperationResult(false, "The folder name must not be empty")
+        }
+        if (clean.contains('/') || clean.contains('\\')) {
+            return@withContext SafOperationResult(false, "The folder name must not contain slashes")
+        }
+        try {
+            val documentUri = buildParentDocumentUri(treeUri, parentUri)
+            val created = DocumentsContract.createDocument(
+                resolver,
+                documentUri,
+                DocumentsContract.Document.MIME_TYPE_DIR,
+                clean
+            )
+            if (created == null) {
+                SafOperationResult(false, "The provider refused to create the folder")
+            } else {
+                SafOperationResult(true, newUri = created.toString())
+            }
+        } catch (e: Exception) {
+            SafOperationResult(false, e.localizedMessage)
+        }
+    }
+
+    suspend fun zipFiles(
+        files: List<FileEntry>,
+        destinationTreeUri: Uri,
+        archiveName: String,
+        onProgress: suspend (processed: Int, total: Int) -> Unit = { _, _ -> }
+    ): SafOperationResult = withContext(Dispatchers.IO) {
+        val sources = files.filter { !it.isDirectory }
+        if (sources.isEmpty()) {
+            return@withContext SafOperationResult(false, "There are no files to compress")
+        }
+        val destinationRoot = DocumentFile.fromTreeUri(appContext, destinationTreeUri)
+            ?: return@withContext SafOperationResult(false, "Destination folder is unavailable")
+        val safeName = archiveName
+            .trim()
+            .ifBlank { "SpacePilot-${System.currentTimeMillis()}.zip" }
+            .let { if (it.endsWith(".zip", ignoreCase = true)) it else "$it.zip" }
+        val target = try {
+            destinationRoot.createFile("application/zip", uniqueName(destinationRoot, safeName))
+        } catch (e: Exception) {
+            return@withContext SafOperationResult(false, e.localizedMessage)
+        } ?: return@withContext SafOperationResult(false, "The destination does not allow file creation")
+
+        var processed = 0
+        var failed = 0
+        var bytes = 0L
+        val entryNames = HashSet<String>()
+        try {
+            val output = resolver.openOutputStream(target.uri)
+                ?: return@withContext SafOperationResult(false, "Cannot write to the destination")
+            output.use { raw ->
+                ZipOutputStream(raw.buffered()).use { zip ->
+                    for (file in sources) {
+                        coroutineContext.ensureActive()
+                        val input = try {
+                            resolver.openInputStream(Uri.parse(file.uri))
+                        } catch (_: Exception) {
+                            null
+                        }
+                        if (input == null) {
+                            failed++
+                            processed++
+                            onProgress(processed, sources.size)
+                            continue
+                        }
+                        val entryName = uniqueEntryName(file.name, entryNames)
+                        try {
+                            zip.putNextEntry(ZipEntry(entryName))
+                            input.use { source ->
+                                val copied = source.copyTo(zip, DEFAULT_BUFFER_SIZE)
+                                bytes += copied
+                            }
+                            zip.closeEntry()
+                            processed++
+                        } catch (_: Exception) {
+                            failed++
+                            processed++
+                            runCatching { zip.closeEntry() }
+                        }
+                        onProgress(processed, sources.size)
+                    }
+                    zip.finish()
+                }
+            }
+            if (processed == 0) {
+                runCatching { target.delete() }
+                SafOperationResult(false, "No file could be compressed")
+            } else {
+                SafOperationResult(
+                    success = true,
+                    message = if (failed > 0) "Some files could not be added" else null,
+                    newUri = target.uri.toString(),
+                    bytes = bytes,
+                    processed = processed,
+                    failed = failed
+                )
+            }
+        } catch (e: Exception) {
+            runCatching { target.delete() }
+            SafOperationResult(false, e.localizedMessage)
+        }
+    }
+
+    private fun buildParentDocumentUri(treeUri: Uri, parentUri: Uri?): Uri {
+        val parent = parentUri ?: treeUri
+        return when {
+            DocumentsContract.isTreeUri(parent) -> DocumentsContract.buildDocumentUriUsingTree(
+                parent,
+                DocumentsContract.getTreeDocumentId(parent)
+            )
+            DocumentsContract.isDocumentUri(appContext, parent) -> DocumentsContract.buildDocumentUriUsingTree(
+                treeUri,
+                DocumentsContract.getDocumentId(parent)
+            )
+            else -> parent
+        }
+    }
+
+    private fun uniqueEntryName(name: String, used: MutableSet<String>): String {
+        val safe = name.ifBlank { "file" }.replace('/', '_').replace('\\', '_')
+        if (used.add(safe)) return safe
+        val dot = safe.lastIndexOf('.')
+        val base = if (dot > 0) safe.substring(0, dot) else safe
+        val extension = if (dot > 0) safe.substring(dot) else ""
+        var index = 1
+        while (index < 10000) {
+            val candidate = "$base ($index)$extension"
+            if (used.add(candidate)) return candidate
+            index++
+        }
+        val fallback = "$base-${System.currentTimeMillis()}$extension"
+        used.add(fallback)
+        return fallback
     }
 
     private fun uniqueName(directory: DocumentFile, name: String): String {

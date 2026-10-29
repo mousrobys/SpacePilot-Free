@@ -46,6 +46,7 @@ import com.spacepilot.free.data.model.FileEntry
 import com.spacepilot.free.ui.components.ConfirmActionDialog
 import com.spacepilot.free.ui.components.FileAnalysisDialog
 import com.spacepilot.free.ui.components.PermissionRationaleDialog
+import com.spacepilot.free.ui.screens.AntivirusScreen
 import com.spacepilot.free.ui.screens.ApkScreen
 import com.spacepilot.free.ui.screens.DuplicatesScreen
 import com.spacepilot.free.ui.screens.FileManagerScreen
@@ -55,11 +56,13 @@ import com.spacepilot.free.ui.screens.ResultsScreen
 import com.spacepilot.free.ui.screens.ScanScreen
 import com.spacepilot.free.ui.screens.SettingsScreen
 import com.spacepilot.free.ui.theme.SpacePilotTheme
+import com.spacepilot.free.util.Formatters
 import com.spacepilot.free.util.IntentUtils
 import com.spacepilot.free.util.PermissionUtils
 import com.spacepilot.free.viewmodel.AppViewModel
 import com.spacepilot.free.viewmodel.UiEvent
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private object Routes {
     const val HOME = "home"
@@ -70,6 +73,7 @@ private object Routes {
     const val LARGE = "large"
     const val RESULTS = "results"
     const val APK = "apk"
+    const val SECURITY = "security"
 }
 
 private data class TabItem(
@@ -87,7 +91,11 @@ private val tabs = listOf(
 )
 
 @Composable
-fun SpacePilotApp(viewModel: AppViewModel) {
+fun SpacePilotApp(
+    viewModel: AppViewModel,
+    scanRequestId: Int = 0,
+    onScanRequestConsumed: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val navController = rememberNavController()
@@ -103,7 +111,11 @@ fun SpacePilotApp(viewModel: AppViewModel) {
     val browser by viewModel.browser.collectAsStateWithLifecycle()
     val analysis by viewModel.analysis.collectAsStateWithLifecycle()
     val copyPending by viewModel.copyPending.collectAsStateWithLifecycle()
+    val zipPending by viewModel.zipPending.collectAsStateWithLifecycle()
     val allFiles by viewModel.allFiles.collectAsStateWithLifecycle()
+    val apkScans by viewModel.apkScans.collectAsStateWithLifecycle()
+    val cloudEnabled by viewModel.cloudEnabled.collectAsStateWithLifecycle()
+    val cloudApiKey by viewModel.cloudApiKey.collectAsStateWithLifecycle()
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -132,6 +144,16 @@ fun SpacePilotApp(viewModel: AppViewModel) {
         }
     }
 
+    val zipDestinationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onZipDestinationSelected(uri)
+        } else {
+            viewModel.cancelZip()
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -146,7 +168,7 @@ fun SpacePilotApp(viewModel: AppViewModel) {
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
-            val message = when (event) {
+            val message: String? = when (event) {
                 is UiEvent.Deleted -> if (event.failed > 0) {
                     if (event.count > 0) {
                         context.getString(R.string.msg_delete_failed, event.count, event.failed)
@@ -166,10 +188,37 @@ fun SpacePilotApp(viewModel: AppViewModel) {
                     R.string.msg_copy_failed,
                     event.reason ?: context.getString(R.string.common_unknown)
                 )
+                is UiEvent.Renamed -> context.getString(R.string.msg_renamed, event.name)
+                is UiEvent.RenameFailed -> context.getString(
+                    R.string.msg_rename_failed,
+                    event.reason ?: context.getString(R.string.common_unknown)
+                )
+                is UiEvent.FolderCreated -> context.getString(R.string.msg_folder_created, event.name)
+                is UiEvent.FolderCreateFailed -> context.getString(
+                    R.string.msg_folder_create_failed,
+                    event.reason ?: context.getString(R.string.common_unknown)
+                )
+                is UiEvent.BatchRenamed -> context.getString(
+                    R.string.msg_batch_renamed,
+                    event.renamed,
+                    event.failed
+                )
+                is UiEvent.ZipCreated -> context.getString(
+                    R.string.msg_zip_created,
+                    event.name,
+                    Formatters.bytes(event.bytes, Locale.getDefault())
+                )
+                is UiEvent.ZipFailed -> context.getString(
+                    R.string.msg_zip_failed,
+                    event.reason ?: context.getString(R.string.common_unknown)
+                )
+                is UiEvent.ApkScanned -> null
                 UiEvent.HistoryCleared -> context.getString(R.string.settings_history_cleared)
                 is UiEvent.Message -> event.text
             }
-            snackbarHostState.showSnackbar(message)
+            if (message != null) {
+                snackbarHostState.showSnackbar(message)
+            }
         }
     }
 
@@ -189,6 +238,12 @@ fun SpacePilotApp(viewModel: AppViewModel) {
     LaunchedEffect(copyPending) {
         if (copyPending != null) {
             copyDestinationLauncher.launch(null)
+        }
+    }
+
+    LaunchedEffect(zipPending) {
+        if (zipPending != null) {
+            zipDestinationLauncher.launch(null)
         }
     }
 
@@ -216,6 +271,13 @@ fun SpacePilotApp(viewModel: AppViewModel) {
             viewModel.startScan()
         } else {
             showPermissionDialog = true
+        }
+    }
+
+    LaunchedEffect(scanRequestId) {
+        if (scanRequestId > 0) {
+            requestScan(true)
+            onScanRequestConsumed()
         }
     }
 
@@ -258,6 +320,7 @@ fun SpacePilotApp(viewModel: AppViewModel) {
                         onDuplicates = { navigateTab(Routes.DUPLICATES) },
                         onFiles = { navigateTab(Routes.FILES) },
                         onApks = { navController.navigate(Routes.APK) },
+                        onSecurity = { navController.navigate(Routes.SECURITY) },
                         onSettings = { navigateTab(Routes.SETTINGS) },
                         onResults = { navController.navigate(Routes.RESULTS) },
                         onPickFolder = { folderLauncher.launch(null) },
@@ -323,6 +386,10 @@ fun SpacePilotApp(viewModel: AppViewModel) {
                         onInfo = viewModel::analyzeFile,
                         onCopy = viewModel::requestCopy,
                         onDelete = viewModel::deleteFiles,
+                        onRename = viewModel::renameEntry,
+                        onCreateFolder = viewModel::createFolder,
+                        onBatchRename = viewModel::batchRename,
+                        onZip = viewModel::requestZip,
                         bottomBar = bottomBar
                     )
                 }
@@ -353,6 +420,10 @@ fun SpacePilotApp(viewModel: AppViewModel) {
                             (context as? Activity)?.recreate()
                         },
                         onOpenSystemSettings = { IntentUtils.openAppSettings(context) },
+                        cloudEnabled = cloudEnabled,
+                        cloudApiKey = cloudApiKey,
+                        onCloudEnabledChange = viewModel::setCloudEnabled,
+                        onCloudApiKeyChange = viewModel::setCloudApiKey,
                         bottomBar = bottomBar
                     )
                 }
@@ -360,11 +431,27 @@ fun SpacePilotApp(viewModel: AppViewModel) {
                 composable(Routes.LARGE) {
                     LargeFilesScreen(
                         summary = summary,
+                        files = allFiles,
                         onBack = { navController.popBackStack() },
                         onScan = { requestScan(true) },
                         onOpenFile = openFile,
                         onInfo = viewModel::analyzeFile,
                         onDelete = viewModel::deleteFiles
+                    )
+                }
+
+                composable(Routes.SECURITY) {
+                    AntivirusScreen(
+                        apkFiles = allFiles.filter { it.category == FileCategory.APK },
+                        scans = apkScans,
+                        cloudEnabled = cloudEnabled,
+                        hasScanResults = summary != null,
+                        onBack = { navController.popBackStack() },
+                        onScanAll = viewModel::scanAllApks,
+                        onScanFile = viewModel::scanApk,
+                        onCancel = viewModel::cancelApkScans,
+                        onScanStorage = { requestScan(true) },
+                        onOpenFile = openFile
                     )
                 }
 

@@ -1,18 +1,17 @@
 # Отчёт о сборке и проверке
 
-Дата: 23 октября 2026 года
+Дата: 29 октября 2026 года
 Проект: `C:\Users\moysecamm\Documents\проекты\SpacePilot Free`
+Версия: 1.2.0 (`versionCode 2`)
 
 ## Итог
 
 | Проверка | Результат |
 |---|---|
-| `:app:assembleDebug` | Успешно |
+| `:app:compileReleaseKotlin` | Успешно |
 | `:app:assembleRelease` (с ключом разработки) | Успешно, APK подписан |
-| `:app:testDebugUnitTest` | 8 тестов, 0 ошибок |
-| `:app:lintDebug` | 0 ошибок, 60 предупреждений |
-| `lintVitalRelease` (в составе release-сборки) | Успешно |
-| Проверка debug-подписи `apksigner` | Подписан отладочным сертификатом Android Debug |
+| `:app:testReleaseUnitTest` | 18 тестов, 0 ошибок |
+| `:app:lintRelease` | 0 ошибок, 65 предупреждений |
 | Проверка release-подписи `apksigner` | `Verifies`, схема v2, сертификат `CN=SpacePilot Free` |
 | Запуск на устройстве/эмуляторе | Не выполнялся: нет подключённого устройства и AVD |
 
@@ -27,14 +26,15 @@
 - Android SDK: `C:\Users\moysecamm\AppData\Local\Android\Sdk`
 - Build-Tools: 36.0.0
 - Compose BOM: 2025.06.01
+- Glance (виджет): `androidx.glance:glance-appwidget:1.1.1`
 
 ## Артефакты
 
 | Артефакт | Путь | Размер | SHA-256 |
 |---|---|---|---|
-| Подписанный release APK | `apk/SpacePilot-Free-1.0.0-release.apk` | 11 720 980 байт | `6DD61147DB6184FE68E6932C491DE05A3134BD8662EB75D096939DAC81E316A6` |
-| Копия сборки release | `app/build/outputs/apk/release/app-release.apk` | 11 720 980 байт | то же |
-| Debug APK | `app/build/outputs/apk/debug/app-debug.apk` | 22 459 727 байт | собирается локально, в поставку не входит |
+| Подписанный release APK | `apk/SpacePilot-Free-1.2.0-release.apk` | 13 600 675 байт | `CD9AB75A5F4D1D3F7A93EB1FAD9B0F776AE98544A056A37E0AFFDA538A864EE6` |
+| Копия сборки release | `app/build/outputs/apk/release/app-release.apk` | 13 600 675 байт | то же |
+| Debug APK | `app/build/outputs/apk/debug/app-debug.apk` | собирается локально, в поставку не входит | — |
 
 ### Ключ подписи
 
@@ -44,103 +44,109 @@
 - Сертификат: `CN=SpacePilot Free, OU=Mobile, O=SpacePilot, L=Moscow, C=RU`, RSA 2048, срок 10 000 дней
 - Отпечаток сертификата SHA-256: `7853209e65c97af432e1dc236db80813ecc166049264f93ac31ec9e1601bd228`
 
-Это **ключ разработки**, сгенерированный для проверки установки. Для публикации в RuStore рекомендуется собственный ключ, созданный и сохранённый в надёжном месте. Файлы `keys/`, `keystore.properties` и `apk/` исключены из репозитория через `.gitignore`.
+Это **ключ разработки**. Для публикации в RuStore рекомендуется собственный ключ, созданный и сохранённый в надёжном месте. Файлы `keys/`, `keystore.properties` и `apk/` исключены из репозитория через `.gitignore`.
 
 ## Команды
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.20.8-hotspot"
 
-# debug + signed release
-.\gradlew.bat :app:assembleDebug :app:assembleRelease --no-daemon
+# компиляция Kotlin
+.\gradlew.bat :app:compileReleaseKotlin --no-daemon
 
-# unit-тесты
-.\gradlew.bat :app:testDebugUnitTest --no-daemon
+# unit-тесты (при кириллице в пути — через junction, см. ниже)
+.\gradlew.bat :app:testReleaseUnitTest --no-daemon
 
-# статический анализ
-.\gradlew.bat :app:lintDebug --no-daemon
+# статический анализ и release-сборка
+.\gradlew.bat :app:lintRelease :app:assembleRelease --no-daemon
 ```
 
 Подпись release берётся из `keystore.properties` в корне проекта; свойства `-PSPACEPILOT_*` имеют приоритет. Если файла и свойств нет, собирается `app-release-unsigned.apk`.
 
-Логи: `build-final.log`, `build-v1v2.log`, `build-signed-release.log`, `build-install-fix.log`, `build-sdk36.log`, `lint-sdk36.log`, `test-debug.log`, `lint-debug.log` в корне проекта.
-
 ## Что именно проверено
 
-### Подписанный release APK
+### Release APK
 
-`aapt dump badging`:
+`aapt2 dump badging`:
 
 ```
-package: name='com.spacepilot.free' versionCode='1' versionName='1.0.0'
-sdkVersion:'26'
+package: name='com.spacepilot.free' versionCode='2' versionName='1.2.0'
+compileSdkVersion='36'
+minSdkVersion:'26'
 targetSdkVersion:'36'
-uses-permission: READ_EXTERNAL_STORAGE (maxSdkVersion 32)
-uses-permission: WRITE_EXTERNAL_STORAGE (maxSdkVersion 28)
-uses-permission: READ_MEDIA_IMAGES
-uses-permission: READ_MEDIA_VIDEO
-uses-permission: READ_MEDIA_AUDIO
 ```
 
-Разрешения `INTERNET` и `MANAGE_EXTERNAL_STORAGE` отсутствуют.
+Разрешения итогового манифеста (`aapt2 dump permissions`):
 
-`apksigner verify --print-certs`:
+```
+READ_EXTERNAL_STORAGE   (maxSdkVersion 32)
+WRITE_EXTERNAL_STORAGE  (maxSdkVersion 28)
+READ_MEDIA_IMAGES
+READ_MEDIA_VIDEO
+READ_MEDIA_AUDIO
+INTERNET
+WAKE_LOCK
+ACCESS_NETWORK_STATE
+RECEIVE_BOOT_COMPLETED
+FOREGROUND_SERVICE
+com.spacepilot.free.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+```
+
+`INTERNET` используется только для необязательной облачной проверки APK по SHA-256 (VirusTotal, ключ пользователя, по умолчанию выключено). `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` и `FOREGROUND_SERVICE` — транзитивные разрешения `androidx.work`, которую подтягивает Glance; собственный код приложения фоновых сервисов не запускает. `MANAGE_EXTERNAL_STORAGE` отсутствует.
+
+`apksigner verify --verbose --print-certs`:
 
 ```
 Verifies
+Verified using v1 scheme (JAR signing): false
 Verified using v2 scheme (APK Signature Scheme v2): true
 Signer #1 certificate DN: CN=SpacePilot Free, OU=Mobile, O=SpacePilot, L=Moscow, C=RU
 Signer #1 certificate SHA-256 digest: 7853209e65c97af432e1dc236db80813ecc166049264f93ac31ec9e1601bd228
 ```
 
-`aapt dump xmltree` подтверждает: `android:debuggable` отсутствует, `allowBackup=false`, `usesCleartextTraffic=false`.
+`android:debuggable` в release-манифесте отсутствует, `allowBackup=false`, `usesCleartextTraffic=false`.
 
-### Debug APK
+### Что вошло в 1.2.0
 
-`aapt dump badging`:
-
-```
-package: name='com.spacepilot.free.debug' versionCode='1' versionName='1.0.0-debug'
-sdkVersion:'26'   targetSdkVersion:'36'
-```
-
-`apksigner verify --print-certs`: `Verifies`, сертификат `CN=Android Debug`.
-
-### ZIP-целостность
-
-`python -c "zipfile.ZipFile(...).testzip()"` возвращает `None` (ошибок нет), `zipalign -c -v 4` — `Verification succesful`.
-
-### Про попытку добавить v1-подпись
-
-Для максимальной совместимости в `signingConfigs` включены `enableV1Signing` и `enableV2Signing`. Однако итоговые APK содержат **только v2**, потому что APK превышает 65 535 элементов и JAR-подпись (v1) для такого ZIP технически невозможна; `apksigner` сообщает об этом в предупреждении. Для Android 7.0+ (minSdk 26) v2 — штатная и достаточная схема. Единственный известный побочный эффект: APK не установится в редких окружениях, требующих строго JAR-подпись (некоторые in-app-install «песочницы»). На обычных устройствах, через файловый менеджер и `adb install` установка работает.
+- Переименование файлов и папок и создание папок через `DocumentsContract` (SAF).
+- Множественный выбор в файловом менеджере, пакетное переименование по шаблону `{name}`, `{n}`, `{ext}`.
+- Упаковка выбранных файлов в ZIP в папку, выбранную через SAF (`java.util.zip` + `ContentResolver`).
+- Вкладки «Все / Видео / Аудио / Изображения / Архивы / APK» в разделе больших файлов.
+- Локальная проверка APK: подпись, отладочный сертификат, `debuggable`, опасные разрешения, экспортированные компоненты, оценка риска.
+- Необязательная проверка SHA-256 в VirusTotal API v3 с ключом пользователя (только хеш, HTTPS).
+- Виджет Glance: свободное место и кнопка «Сканировать» (`WidgetScanActivity` → `ACTION_SCAN`).
+- Edge-to-edge: `WindowCompat.setDecorFitsSystemWindows(window, false)` + `contentWindowInsets = WindowInsets(0)` на экранах.
 
 ### Unit-тесты
 
-`app/src/test/java/com/spacepilot/free/util/FormattersAndFileTypesTest.kt`: 8 тестов на форматирование размеров/процентов и классификацию файлов (расширения, MIME, APK, каталоги, фильтры).
+`app/src/test/java/com/spacepilot/free/util/`:
 
-Результат: `tests="8" skipped="0" failures="0" errors="0"`.
+- `FormattersAndFileTypesTest` — 8 тестов: форматирование размеров/процентов, классификация файлов.
+- `RenamePatternTest` — 10 тестов: подстановки `{name}`/`{n}`/`{ext}`, ведущие нули, автонумерация, расширения, каталоги, санитайзинг разделителей, пустой шаблон, предпросмотр.
 
-Особенность окружения: при запуске из пути с кириллицей (`Documents\проекты\...`) тестовый worker Gradle падал с `ClassNotFoundException` при загрузке самого тестового класса. Тот же запуск через junction с ASCII-путём (`C:\spacepilot-build` → каталог проекта) прошёл успешно. Компиляция, lint и сборка APK из исходного пути работают. Это ограничение тестового раннера/пути, а не кода приложения.
+Результат прогона: `tests=18, failures=0, errors=0` (два XML-отчёта).
+
+Особенность окружения: при запуске из пути с кириллицей (`Documents\проекты\...`) тестовый worker Gradle падал с `ClassNotFoundException` при загрузке самого тестового класса. Тот же запуск через junction с ASCII-путём (`C:\spacepilot-build` → каталог проекта) прошёл успешно. Компиляция, lint и сборка APK из исходного пути работают.
 
 ### Lint
 
-Исправлена одна ошибка `NewApi`: из `values/themes.xml` удалён `android:windowLightNavigationBar` (атрибут требует API 27, minSdk 26; значение `false` и так является поведением по умолчанию). После исправления `lintDebug` завершается успешно.
+`lintRelease` завершился успешно: **0 ошибок, 65 предупреждений**. Основные категории:
 
-Остались 60 предупреждений, в основном:
-
-- неиспользуемые строковые ресурсы (зарезервированы под будущие экраны);
-- отсутствие `monochrome` в adaptive icon (темизированная иконка на Android 13+);
-- прочие рекомендации, не влияющие на работоспособность.
+- `UnusedAttribute` — `targetCellWidth`/`targetCellHeight`/`description` в `spacepilot_widget_info.xml` действуют только с API 31 (на старых версиях игнорируются);
+- неиспользуемые строковые ресурсы;
+- отсутствие `monochrome` в adaptive icon;
+- рекомендации по версиям зависимостей.
 
 Fatal-ошибок и ошибок манифеста нет.
 
 ## Что не проверено
 
-1. **Запуск и UI на устройстве.** В окружении не было ни физического устройства, ни AVD (`adb devices` пуст, эмулятор не установлен). Не проверены: реальные сценарии SAF, системные диалоги удаления, установка APK, поведение на разных версиях Android, производительность на больших файлах, вёрстка на разных экранах.
-2. **Фактическая установка APK.** Файл проверен криптографически (`apksigner verify`, целостность ZIP), но на устройство не ставился.
-3. **Скриншоты для RuStore.** Не подготовлены — нет устройства/эмулятора.
-4. **Инструментальные (androidTest) тесты.** Не запускались: требуется устройство/эмулятор. JVM-тесты покрывают только чистую логику форматирования и классификации.
-5. **Полноценная проверка дубликатов на реальных данных.** Логика хэширования и выборочной проверки реализована и компилируется, но на реальной библиотеке файлов не прогонялась.
+1. **Запуск и UI на устройстве.** В окружении нет ни физического устройства, ни AVD (`adb devices` пуст). Не проверены: реальные сценарии SAF, переименование/создание папок/ZIP на разных провайдерах, системные диалоги удаления, установка APK, вёрстка на разных экранах, edge-to-edge на Android 15/16.
+2. **Виджет.** Код компилируется, ресурсы и receiver включены в APK, но фактическое добавление на главный экран, обновление и кнопка «Сканировать» на устройстве не проверялись.
+3. **Облачная проверка VirusTotal.** Клиент реализован (разбор `last_analysis_stats`, коды 401/403/404/429), но реальные запросы с ключом не выполнялись.
+4. **Фактическая установка APK.** Файл проверен криптографически (`apksigner verify`), но на устройство не ставился.
+5. **Скриншоты для RuStore.** Не подготовлены — нет устройства/эмулятора.
+6. **Инструментальные (androidTest) тесты.** Не запускались: требуется устройство/эмулятор.
 
 ## Известные ограничения продукта
 
@@ -148,7 +154,8 @@ Fatal-ошибок и ошибок манифеста нет.
 - Удаление необратимо, корзины нет.
 - Для файлов >32 МБ используется выборочный SHA-256 (начало/середина/конец по 128 КБ); это отмечено в UI.
 - Кэш сканирования ограничен 40 000 файлов с приоритетом крупных файлов и APK.
-- Нет проверки APK на вредоносность и нет собственного установщика.
+- Проверка APK эвристическая, а не полноценный антивирус; гарантий обнаружения вредоносного кода нет.
+- Облачная проверка требует собственного API-ключа VirusTotal и отправляет только SHA-256; без ключа не работает.
 - Release не минифицирован (`isMinifyEnabled = false`), чтобы не рисковать стабильностью без устройств для тестирования.
 
 ## Как получить собственный подписанный release

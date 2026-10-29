@@ -3,6 +3,7 @@ package com.spacepilot.free.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spacepilot.free.R
+import com.spacepilot.free.data.model.FileCategory
 import com.spacepilot.free.data.model.FileEntry
 import com.spacepilot.free.data.model.ScanSummary
 import com.spacepilot.free.ui.components.DeleteConfirmationDialog
@@ -69,9 +72,19 @@ private enum class LargeSort {
     DATE
 }
 
+private enum class MediaTab(val label: Int, val category: FileCategory?) {
+    ALL(R.string.large_tab_all, null),
+    VIDEO(R.string.large_tab_video, FileCategory.VIDEO),
+    AUDIO(R.string.large_tab_audio, FileCategory.AUDIO),
+    IMAGES(R.string.large_tab_images, FileCategory.IMAGES),
+    ARCHIVES(R.string.large_tab_archives, FileCategory.ARCHIVES),
+    APK(R.string.large_tab_apk, FileCategory.APK)
+}
+
 @Composable
 fun LargeFilesScreen(
     summary: ScanSummary?,
+    files: List<FileEntry>,
     onBack: () -> Unit,
     onScan: () -> Unit,
     onOpenFile: (FileEntry) -> Unit,
@@ -81,20 +94,34 @@ fun LargeFilesScreen(
     var threshold by rememberSaveable { mutableLongStateOf(100L) }
     var sort by remember { mutableStateOf(LargeSort.SIZE) }
     var sortMenuOpen by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableStateOf(MediaTab.ALL) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     val allLarge = summary?.largeFiles.orEmpty()
+    val scannedFiles = files.filter { !it.isDirectory }
     val thresholdBytes = threshold * 1024L * 1024L
-    val filtered = allLarge
-        .filter { it.size >= thresholdBytes }
-        .let { list ->
-            when (sort) {
-                LargeSort.SIZE -> list.sortedByDescending { it.size }
-                LargeSort.NAME -> list.sortedBy { it.name.lowercase() }
-                LargeSort.DATE -> list.sortedByDescending { it.modified }
+    val tabCounts = remember(scannedFiles, allLarge, thresholdBytes) {
+        MediaTab.entries.associateWith { entry ->
+            if (entry.category == null) {
+                allLarge.count { it.size >= thresholdBytes }
+            } else {
+                scannedFiles.count { it.category == entry.category }
             }
         }
+    }
+    val base = if (tab == MediaTab.ALL) {
+        allLarge.filter { it.size >= thresholdBytes }
+    } else {
+        scannedFiles.filter { it.category == tab.category }
+    }
+    val filtered = base.let { list ->
+        when (sort) {
+            LargeSort.SIZE -> list.sortedByDescending { it.size }
+            LargeSort.NAME -> list.sortedBy { it.name.lowercase() }
+            LargeSort.DATE -> list.sortedByDescending { it.modified }
+        }
+    }
     val selectedFiles = filtered.filter { it.uri in selected }
 
     Scaffold(
@@ -205,28 +232,60 @@ fun LargeFilesScreen(
             if (summary != null) {
                 item {
                     Column {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MediaTab.entries.forEach { entry ->
+                                FilterChip(
+                                    selected = tab == entry,
+                                    onClick = {
+                                        tab = entry
+                                        selected = emptySet()
+                                    },
+                                    label = {
+                                        Text(
+                                            "${stringResource(entry.label)} · ${tabCounts[entry] ?: 0}"
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
                         Text(
-                            text = stringResource(R.string.large_filter_label),
-                            style = MaterialTheme.typography.labelMedium,
+                            text = stringResource(R.string.large_tab_hint),
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 2.dp, bottom = 6.dp)
+                            modifier = Modifier.padding(horizontal = 2.dp)
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = threshold == 100L,
-                                onClick = { threshold = 100L; selected = emptySet() },
-                                label = { Text(stringResource(R.string.large_filter_100)) }
+                        if (tab == MediaTab.ALL) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = stringResource(R.string.large_filter_label),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 2.dp, bottom = 6.dp)
                             )
-                            FilterChip(
-                                selected = threshold == 500L,
-                                onClick = { threshold = 500L; selected = emptySet() },
-                                label = { Text(stringResource(R.string.large_filter_500)) }
-                            )
-                            FilterChip(
-                                selected = threshold == 1000L,
-                                onClick = { threshold = 1000L; selected = emptySet() },
-                                label = { Text(stringResource(R.string.large_filter_1000)) }
-                            )
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = threshold == 100L,
+                                    onClick = { threshold = 100L; selected = emptySet() },
+                                    label = { Text(stringResource(R.string.large_filter_100)) }
+                                )
+                                FilterChip(
+                                    selected = threshold == 500L,
+                                    onClick = { threshold = 500L; selected = emptySet() },
+                                    label = { Text(stringResource(R.string.large_filter_500)) }
+                                )
+                                FilterChip(
+                                    selected = threshold == 1000L,
+                                    onClick = { threshold = 1000L; selected = emptySet() },
+                                    label = { Text(stringResource(R.string.large_filter_1000)) }
+                                )
+                            }
                         }
                     }
                 }
@@ -267,9 +326,19 @@ fun LargeFilesScreen(
                     EmptyState(
                         icon = Icons.Outlined.Storage,
                         title = stringResource(
-                            if (summary == null) R.string.large_need_scan else R.string.large_empty_title
+                            when {
+                                summary == null -> R.string.large_need_scan
+                                tab != MediaTab.ALL -> R.string.large_tab_empty_title
+                                else -> R.string.large_empty_title
+                            }
                         ),
-                        message = stringResource(R.string.large_empty_message),
+                        message = stringResource(
+                            if (tab == MediaTab.ALL) {
+                                R.string.large_empty_message
+                            } else {
+                                R.string.large_tab_empty_message
+                            }
+                        ),
                         action = if (summary == null) {
                             {
                                 Button(onClick = onScan) {

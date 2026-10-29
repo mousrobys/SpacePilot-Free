@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
@@ -31,7 +32,9 @@ import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -75,12 +78,17 @@ fun SettingsScreen(
     onClearHistory: () -> Unit,
     onResetSettings: () -> Unit,
     onOpenSystemSettings: () -> Unit,
+    cloudEnabled: Boolean,
+    cloudApiKey: String?,
+    onCloudEnabledChange: (Boolean) -> Unit,
+    onCloudApiKeyChange: (String?) -> Unit,
     bottomBar: @Composable () -> Unit
 ) {
     var showReset by remember { mutableStateOf(false) }
     var showClear by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var keyInput by remember(cloudApiKey) { mutableStateOf(cloudApiKey.orEmpty()) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val permissionMap = remember(context) { PermissionUtils.grantedMap(context) }
 
@@ -260,6 +268,72 @@ fun SettingsScreen(
                         TextButton(onClick = onOpenSystemSettings) {
                             Text(stringResource(R.string.settings_open_system))
                         }
+                    }
+                }
+            }
+            item {
+                SettingsSectionCard(title = stringResource(R.string.settings_cloud_title)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Outlined.Cloud,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_cloud_enable),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_cloud_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Switch(
+                            checked = cloudEnabled,
+                            onCheckedChange = onCloudEnabledChange
+                        )
+                    }
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 14.dp)) {
+                        OutlinedTextField(
+                            value = keyInput,
+                            onValueChange = { keyInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.settings_cloud_key)) },
+                            placeholder = { Text(stringResource(R.string.settings_cloud_key_hint)) },
+                            singleLine = true
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                onClick = { onCloudApiKeyChange(keyInput) },
+                                enabled = keyInput.isNotBlank() && keyInput.trim() != cloudApiKey
+                            ) {
+                                Text(stringResource(R.string.settings_cloud_save))
+                            }
+                            if (!cloudApiKey.isNullOrBlank()) {
+                                TextButton(
+                                    onClick = {
+                                        keyInput = ""
+                                        onCloudApiKeyChange(null)
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.settings_cloud_clear))
+                                }
+                            }
+                        }
+                        Text(
+                            text = stringResource(R.string.settings_cloud_privacy),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

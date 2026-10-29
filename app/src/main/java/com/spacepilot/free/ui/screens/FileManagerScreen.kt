@@ -1,5 +1,9 @@
 package com.spacepilot.free.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,19 +14,26 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Info
@@ -52,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,11 +73,13 @@ import com.spacepilot.free.data.model.BrowserSort
 import com.spacepilot.free.data.model.BrowserState
 import com.spacepilot.free.data.model.FileCategory
 import com.spacepilot.free.data.model.FileEntry
+import com.spacepilot.free.ui.components.BatchRenameDialog
+import com.spacepilot.free.ui.components.CreateFolderDialog
 import com.spacepilot.free.ui.components.DeleteConfirmationDialog
 import com.spacepilot.free.ui.components.EmptyState
 import com.spacepilot.free.ui.components.FileListRow
+import com.spacepilot.free.ui.components.RenameDialog
 import com.spacepilot.free.ui.components.SpaceCard
-import com.spacepilot.free.util.FileTypes
 import java.util.Locale
 
 @Composable
@@ -83,6 +97,10 @@ fun FileManagerScreen(
     onInfo: (FileEntry) -> Unit,
     onCopy: (FileEntry, Boolean) -> Unit,
     onDelete: (List<FileEntry>) -> Unit,
+    onRename: (FileEntry, String) -> Unit,
+    onCreateFolder: (String) -> Unit,
+    onBatchRename: (List<FileEntry>, String) -> Unit,
+    onZip: (List<FileEntry>) -> Unit,
     bottomBar: @Composable () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
@@ -91,7 +109,12 @@ fun FileManagerScreen(
     var sortMenu by remember { mutableStateOf(false) }
     var filterMenu by remember { mutableStateOf(false) }
     var topMenu by remember { mutableStateOf(false) }
-    var deleteTarget by remember { mutableStateOf<FileEntry?>(null) }
+    var selectionMode by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var renameTarget by remember { mutableStateOf<FileEntry?>(null) }
+    var createFolderOpen by remember { mutableStateOf(false) }
+    var batchRenameOpen by remember { mutableStateOf(false) }
+    var deleteTargets by remember { mutableStateOf<List<FileEntry>?>(null) }
     val focusManager = LocalFocusManager.current
 
     val filtered = remember(browser.items, query, filter, sort) {
@@ -111,15 +134,42 @@ fun FileManagerScreen(
                 )
             )
     }
+    val selectedFiles = remember(selected, filtered) { filtered.filter { it.uri in selected } }
+    val toggleSelected: (FileEntry) -> Unit = { item ->
+        selected = if (item.uri in selected) selected - item.uri else selected + item.uri
+    }
+    val exitSelection = {
+        selectionMode = false
+        selected = emptySet()
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.browser_title)) },
+                title = {
+                    if (selectionMode && selectedFiles.isNotEmpty()) {
+                        Text(
+                            pluralStringResource(
+                                R.plurals.files_selected,
+                                selectedFiles.size,
+                                selectedFiles.size
+                            )
+                        )
+                    } else {
+                        Text(stringResource(R.string.browser_title))
+                    }
+                },
                 navigationIcon = {
-                    if (!showBottomBar) {
+                    if (selectionMode) {
+                        IconButton(onClick = exitSelection) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.action_clear_selection)
+                            )
+                        }
+                    } else if (!showBottomBar) {
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.Outlined.ArrowBack,
@@ -129,42 +179,80 @@ fun FileManagerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh, enabled = browser.rootUri != null) {
-                        Icon(
-                            Icons.Outlined.Refresh,
-                            contentDescription = stringResource(R.string.action_refresh)
-                        )
-                    }
-                    Box {
-                        IconButton(onClick = { topMenu = true }) {
+                    if (selectionMode) {
+                        IconButton(
+                            onClick = { selected = filtered.map { it.uri }.toSet() },
+                            enabled = filtered.isNotEmpty()
+                        ) {
                             Icon(
-                                Icons.Outlined.MoreVert,
-                                contentDescription = null
+                                Icons.Outlined.Checklist,
+                                contentDescription = stringResource(R.string.action_select_all)
                             )
                         }
-                        DropdownMenu(expanded = topMenu, onDismissRequest = { topMenu = false }) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(
-                                            if (browser.rootUri == null) R.string.browser_pick_folder
-                                            else R.string.browser_change_folder
-                                        )
-                                    )
-                                },
-                                onClick = {
-                                    topMenu = false
-                                    onPickFolder()
-                                }
+                        IconButton(onClick = exitSelection) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.action_clear_selection)
                             )
-                            if (browser.rootUri != null) {
+                        }
+                    } else {
+                        IconButton(onClick = onRefresh, enabled = browser.rootUri != null) {
+                            Icon(
+                                Icons.Outlined.Refresh,
+                                contentDescription = stringResource(R.string.action_refresh)
+                            )
+                        }
+                        Box {
+                            IconButton(onClick = { topMenu = true }) {
+                                Icon(
+                                    Icons.Outlined.MoreVert,
+                                    contentDescription = null
+                                )
+                            }
+                            DropdownMenu(expanded = topMenu, onDismissRequest = { topMenu = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.browser_disconnect)) },
+                                    text = {
+                                        Text(
+                                            stringResource(
+                                                if (browser.rootUri == null) R.string.browser_pick_folder
+                                                else R.string.browser_change_folder
+                                            )
+                                        )
+                                    },
                                     onClick = {
                                         topMenu = false
-                                        onDisconnectFolder()
+                                        onPickFolder()
                                     }
                                 )
+                                if (browser.rootUri != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_create_folder)) },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.CreateNewFolder, contentDescription = null)
+                                        },
+                                        onClick = {
+                                            topMenu = false
+                                            createFolderOpen = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_select)) },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.Checklist, contentDescription = null)
+                                        },
+                                        onClick = {
+                                            topMenu = false
+                                            selectionMode = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.browser_disconnect)) },
+                                        onClick = {
+                                            topMenu = false
+                                            onDisconnectFolder()
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -174,7 +262,24 @@ fun FileManagerScreen(
                 )
             )
         },
-        bottomBar = bottomBar
+        bottomBar = {
+            Column {
+                AnimatedVisibility(
+                    visible = selectionMode && selectedFiles.isNotEmpty(),
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it }
+                ) {
+                    SelectionActionBar(
+                        selected = selectedFiles,
+                        onBatchRename = { batchRenameOpen = true },
+                        onZip = { onZip(selectedFiles.filterNot { file -> file.isDirectory }) },
+                        onDelete = { deleteTargets = selectedFiles },
+                        onClear = { selected = emptySet() }
+                    )
+                }
+                bottomBar()
+            }
+        }
     ) { innerPadding ->
         if (browser.rootUri == null) {
             Box(
@@ -381,13 +486,29 @@ fun FileManagerScreen(
                             items(filtered, key = { it.uri }) { item ->
                                 BrowserRow(
                                     item = item,
+                                    selectionMode = selectionMode,
+                                    selected = item.uri in selected,
                                     onClick = {
-                                        if (item.isDirectory) onOpenDirectory(item) else onOpenFile(item)
+                                        if (selectionMode) {
+                                            toggleSelected(item)
+                                        } else if (item.isDirectory) {
+                                            onOpenDirectory(item)
+                                        } else {
+                                            onOpenFile(item)
+                                        }
+                                    },
+                                    onSelectedChange = { checked ->
+                                        selected = if (checked) selected + item.uri else selected - item.uri
                                     },
                                     onInfo = { onInfo(item) },
+                                    onRename = { renameTarget = item },
+                                    onSelect = {
+                                        selectionMode = true
+                                        selected = selected + item.uri
+                                    },
                                     onCopy = { onCopy(item, false) },
                                     onMove = { onCopy(item, true) },
-                                    onDelete = { deleteTarget = item }
+                                    onDelete = { deleteTargets = listOf(item) }
                                 )
                             }
                         }
@@ -397,37 +518,131 @@ fun FileManagerScreen(
         }
     }
 
-    deleteTarget?.let { target ->
-        DeleteConfirmationDialog(
-            files = listOf(target),
-            onConfirm = {
-                onDelete(listOf(target))
-                deleteTarget = null
+    renameTarget?.let { target ->
+        RenameDialog(
+            initialName = target.name,
+            onConfirm = { newName ->
+                onRename(target, newName)
+                renameTarget = null
             },
-            onDismiss = { deleteTarget = null }
+            onDismiss = { renameTarget = null }
         )
+    }
+
+    if (createFolderOpen) {
+        CreateFolderDialog(
+            onConfirm = { name ->
+                onCreateFolder(name)
+                createFolderOpen = false
+            },
+            onDismiss = { createFolderOpen = false }
+        )
+    }
+
+    if (batchRenameOpen) {
+        BatchRenameDialog(
+            fileNames = selectedFiles.map { it.name },
+            onConfirm = { pattern ->
+                onBatchRename(selectedFiles, pattern)
+                batchRenameOpen = false
+                exitSelection()
+            },
+            onDismiss = { batchRenameOpen = false }
+        )
+    }
+
+    deleteTargets?.let { targets ->
+        DeleteConfirmationDialog(
+            files = targets,
+            onConfirm = {
+                onDelete(targets)
+                deleteTargets = null
+                exitSelection()
+            },
+            onDismiss = { deleteTargets = null }
+        )
+    }
+}
+
+@Composable
+private fun SelectionActionBar(
+    selected: List<FileEntry>,
+    onBatchRename: () -> Unit,
+    onZip: () -> Unit,
+    onDelete: () -> Unit,
+    onClear: () -> Unit
+) {
+    val hasFiles = selected.any { !it.isDirectory }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = pluralStringResource(R.plurals.files_selected, selected.size, selected.size),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 6.dp)
+        )
+        TextButton(onClick = onBatchRename) {
+            Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(R.string.action_batch_rename))
+        }
+        TextButton(onClick = onZip, enabled = hasFiles) {
+            Icon(Icons.Outlined.Archive, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(R.string.action_zip))
+        }
+        TextButton(onClick = onDelete) {
+            Icon(
+                Icons.Outlined.DeleteOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
+        }
+        TextButton(onClick = onClear) {
+            Text(stringResource(R.string.action_clear_selection))
+        }
     }
 }
 
 @Composable
 private fun BrowserRow(
     item: FileEntry,
+    selectionMode: Boolean,
+    selected: Boolean,
     onClick: () -> Unit,
+    onSelectedChange: (Boolean) -> Unit,
     onInfo: () -> Unit,
+    onRename: () -> Unit,
+    onSelect: () -> Unit,
     onCopy: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    if (selectionMode) {
+        FileListRow(
+            file = item,
+            onClick = onClick,
+            selected = selected,
+            onSelectedChange = onSelectedChange,
+            showPath = false
+        )
+        return
+    }
     Box {
         FileListRow(
             file = item,
             onClick = onClick,
-            onMore = if (!item.isDirectory) {
-                { menuOpen = true }
-            } else {
-                null
-            },
+            onMore = { menuOpen = true },
             showPath = false
         )
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -440,21 +655,41 @@ private fun BrowserRow(
                 }
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_copy)) },
-                leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                text = { Text(stringResource(R.string.action_rename)) },
+                leadingIcon = {
+                    Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null)
+                },
                 onClick = {
                     menuOpen = false
-                    onCopy()
+                    onRename()
                 }
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_move)) },
-                leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
+                text = { Text(stringResource(R.string.action_select)) },
+                leadingIcon = { Icon(Icons.Outlined.Checklist, contentDescription = null) },
                 onClick = {
                     menuOpen = false
-                    onMove()
+                    onSelect()
                 }
             )
+            if (!item.isDirectory) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_copy)) },
+                    leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onCopy()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_move)) },
+                    leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onMove()
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_delete)) },
                 leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },

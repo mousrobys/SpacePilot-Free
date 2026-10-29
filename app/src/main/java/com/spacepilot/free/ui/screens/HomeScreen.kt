@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Image
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Storage
@@ -94,6 +96,7 @@ fun HomeScreen(
     onDuplicates: () -> Unit,
     onFiles: () -> Unit,
     onApks: () -> Unit,
+    onSecurity: () -> Unit,
     onSettings: () -> Unit,
     onResults: () -> Unit,
     onPickFolder: () -> Unit,
@@ -144,7 +147,8 @@ fun HomeScreen(
                     onLargeFiles = onLargeFiles,
                     onDuplicates = onDuplicates,
                     onFiles = onFiles,
-                    onApks = onApks
+                    onApks = onApks,
+                    onSecurity = onSecurity
                 )
             }
             item {
@@ -467,7 +471,8 @@ private fun QuickActionsGrid(
     onLargeFiles: () -> Unit,
     onDuplicates: () -> Unit,
     onFiles: () -> Unit,
-    onApks: () -> Unit
+    onApks: () -> Unit,
+    onSecurity: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -506,6 +511,14 @@ private fun QuickActionsGrid(
                 modifier = Modifier.weight(1f)
             )
         }
+        QuickActionCard(
+            icon = Icons.Outlined.Security,
+            title = stringResource(R.string.security_quick),
+            subtitle = stringResource(R.string.security_quick_desc),
+            tint = Color(0xFF7BD88F),
+            onClick = onSecurity,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -728,8 +741,11 @@ private fun OperationRow(operation: OperationRecord) {
                 OperationType.SCAN -> Icons.Outlined.Radar
                 OperationType.COPY -> Icons.Outlined.ContentCopy
                 OperationType.MOVE -> Icons.Outlined.FolderOpen
+                OperationType.RENAME -> Icons.Outlined.DriveFileRenameOutline
+                OperationType.ZIP -> Icons.Outlined.Archive
                 OperationType.CHECKSUM -> Icons.Outlined.Description
                 OperationType.APK_INSTALL -> Icons.Outlined.Smartphone
+                OperationType.APK_SCAN -> Icons.Outlined.Security
             }
             Box(
                 modifier = Modifier

@@ -26,6 +26,12 @@ class SettingsRepository(context: Context) {
     private val _operations = MutableStateFlow(loadOperations())
     val operations: StateFlow<List<OperationRecord>> = _operations.asStateFlow()
 
+    private val _cloudEnabled = MutableStateFlow(prefs.getBoolean(KEY_CLOUD_ENABLED, false))
+    val cloudEnabled: StateFlow<Boolean> = _cloudEnabled.asStateFlow()
+
+    private val _cloudApiKey = MutableStateFlow(prefs.getString(KEY_CLOUD_API_KEY, null))
+    val cloudApiKey: StateFlow<String?> = _cloudApiKey.asStateFlow()
+
     fun setTheme(mode: ThemeMode) {
         prefs.edit().putString(KEY_THEME, mode.name).apply()
         _settings.value = _settings.value.copy(themeMode = mode)
@@ -51,6 +57,21 @@ class SettingsRepository(context: Context) {
             prefs.edit().putString(KEY_FOLDER_URI, uri).apply()
         }
         _folderUri.value = uri
+    }
+
+    fun setCloudEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CLOUD_ENABLED, enabled).apply()
+        _cloudEnabled.value = enabled
+    }
+
+    fun setCloudApiKey(key: String?) {
+        val clean = key?.trim()?.takeIf { it.isNotEmpty() }
+        if (clean == null) {
+            prefs.edit().remove(KEY_CLOUD_API_KEY).apply()
+        } else {
+            prefs.edit().putString(KEY_CLOUD_API_KEY, clean).apply()
+        }
+        _cloudApiKey.value = clean
     }
 
     fun addOperation(record: OperationRecord) {
@@ -119,6 +140,8 @@ class SettingsRepository(context: Context) {
         const val KEY_THEME = "theme_mode"
         const val KEY_FOLDER_URI = "folder_uri"
         private const val KEY_OPERATIONS = "recent_operations"
+        private const val KEY_CLOUD_ENABLED = "cloud_lookup_enabled"
+        private const val KEY_CLOUD_API_KEY = "cloud_api_key"
         private const val MAX_OPERATIONS = 25
         const val SCAN_CACHE_FILE = "last_scan_cache.json.gz"
     }
