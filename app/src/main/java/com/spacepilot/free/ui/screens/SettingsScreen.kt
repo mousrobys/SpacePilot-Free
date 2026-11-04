@@ -127,7 +127,8 @@ fun SettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = stringResource(R.string.settings_theme),
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                     ThemeMode.entries.forEach { mode ->
@@ -160,7 +161,8 @@ fun SettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = stringResource(R.string.settings_language),
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                     LanguageMode.entries.forEach { mode ->
@@ -213,7 +215,10 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        TextButton(onClick = onPickFolder) {
+                        TextButton(
+                            onClick = onPickFolder,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
                             Text(
                                 stringResource(
                                     if (folderUri == null) R.string.settings_pick_folder
@@ -222,7 +227,10 @@ fun SettingsScreen(
                             )
                         }
                         if (folderUri != null) {
-                            TextButton(onClick = onDisconnectFolder) {
+                            TextButton(
+                                onClick = onDisconnectFolder,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
                                 Text(stringResource(R.string.settings_disconnect_folder))
                             }
                         }

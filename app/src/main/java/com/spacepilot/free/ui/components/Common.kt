@@ -107,9 +107,13 @@ fun SectionHeader(
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f)
         )
-        action?.invoke()
+        if (action != null) {
+            Spacer(Modifier.width(8.dp))
+            action()
+        }
     }
 }
 

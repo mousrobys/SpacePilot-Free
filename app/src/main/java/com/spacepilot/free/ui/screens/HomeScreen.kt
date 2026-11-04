@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spacepilot.free.R
@@ -700,12 +701,14 @@ private fun LastScanCard(summary: ScanSummary?, onResults: () -> Unit, onScan: (
                             R.plurals.files_count,
                             summary.scannedFiles,
                             summary.scannedFiles
-                        )
+                        ),
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     StatBlock(
                         label = stringResource(R.string.scan_data_found),
                         value = Formatters.bytes(summary.totalBytes, Locale.getDefault()),
-                        accent = Blue
+                        accent = Blue,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -713,7 +716,7 @@ private fun LastScanCard(summary: ScanSummary?, onResults: () -> Unit, onScan: (
                     TextButton(onClick = onResults) {
                         Text(stringResource(R.string.home_view_results))
                     }
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (summary.usedFolderAccess) {
                             stringResource(R.string.results_folder_access)
@@ -721,7 +724,9 @@ private fun LastScanCard(summary: ScanSummary?, onResults: () -> Unit, onScan: (
                             stringResource(R.string.results_media_only)
                         },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }

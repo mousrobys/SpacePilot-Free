@@ -197,11 +197,15 @@ private fun IdleScanCard(
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                         containerColor = Teal,
                         contentColor = Color(0xFF002C2A)
-                    )
+                    ),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.scan_start))
                 }
-                OutlinedButton(onClick = onPickFolder) {
+                OutlinedButton(
+                    onClick = onPickFolder,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Icon(Icons.Outlined.Folder, contentDescription = null, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(
@@ -266,12 +270,14 @@ private fun RunningScanCard(state: ScanUiState.Running, onCancel: () -> Unit) {
                         R.plurals.files_count,
                         state.scannedFiles,
                         state.scannedFiles
-                    )
+                    ),
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 StatBlock(
                     label = stringResource(R.string.scan_data_found),
                     value = Formatters.bytes(state.scannedBytes, Locale.getDefault()),
-                    accent = Blue
+                    accent = Blue,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
             AnimatedVisibility(visible = state.currentLocation.isNotBlank()) {
@@ -328,10 +334,10 @@ private fun CompletedScanCard(summary: ScanSummary, onResults: () -> Unit, onSca
             }
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = onResults) {
+                Button(onClick = onResults, modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.scan_view_results))
                 }
-                OutlinedButton(onClick = onScan) {
+                OutlinedButton(onClick = onScan, modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.scan_restart))
                 }
             }
@@ -461,7 +467,7 @@ private fun NoticeCard(
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(10.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,

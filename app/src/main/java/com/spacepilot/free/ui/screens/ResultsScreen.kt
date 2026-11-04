@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spacepilot.free.R
@@ -231,9 +232,10 @@ private fun SummaryHero(summary: ScanSummary) {
                 Text(
                     text = stringResource(R.string.scan_complete_title),
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFFF0FBFF)
+                    color = Color(0xFFF0FBFF),
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = if (summary.usedFolderAccess) {
                         stringResource(R.string.results_folder_access)
@@ -241,7 +243,8 @@ private fun SummaryHero(summary: ScanSummary) {
                         stringResource(R.string.results_media_only)
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFA9C7D8)
+                    color = Color(0xFFA9C7D8),
+                    textAlign = TextAlign.End
                 )
             }
             Spacer(Modifier.height(14.dp))
@@ -249,12 +252,14 @@ private fun SummaryHero(summary: ScanSummary) {
                 StatBlock(
                     label = stringResource(R.string.results_scanned_files),
                     value = Formatters.count(summary.scannedFiles, Locale.getDefault()),
-                    accent = Color(0xFFF0FBFF)
+                    accent = Color(0xFFF0FBFF),
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 StatBlock(
                     label = stringResource(R.string.results_total_size),
                     value = Formatters.bytes(summary.totalBytes, Locale.getDefault()),
-                    accent = Teal
+                    accent = Teal,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -281,7 +286,8 @@ private fun WarningCard(text: String) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
             )
         }
     }

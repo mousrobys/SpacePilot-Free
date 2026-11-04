@@ -136,7 +136,8 @@ fun AntivirusScreen(
                                 else R.string.security_cloud_off
                             ),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                     Spacer(Modifier.height(4.dp))

@@ -351,11 +351,12 @@ private fun AnalyzeCard(scannedFileCount: Int, onAnalyze: () -> Unit, onScan: ()
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Teal,
                         contentColor = androidx.compose.ui.graphics.Color(0xFF002C2A)
-                    )
+                    ),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.action_continue))
                 }
-                OutlinedButton(onClick = onScan) {
+                OutlinedButton(onClick = onScan, modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.action_scan))
                 }
             }

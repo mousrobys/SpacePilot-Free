@@ -302,9 +302,10 @@ fun LargeFilesScreen(
                                 Formatters.bytes(filtered.sumOf { it.size }, Locale.getDefault())
                             ),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
-                        Spacer(Modifier.weight(1f))
+                        Spacer(Modifier.width(10.dp))
                         if (selectedFiles.isNotEmpty()) {
                             Button(onClick = { selected = emptySet() }) {
                                 Text(stringResource(R.string.action_clear_selection))
@@ -395,7 +396,7 @@ private fun NoticeCard(
                 modifier = Modifier.size(20.dp)
             )
             Spacer(Modifier.width(10.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelLarge,

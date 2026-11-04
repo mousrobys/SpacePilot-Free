@@ -101,7 +101,8 @@ fun ApkScreen(
                         Text(
                             text = stringResource(R.string.apk_safety_note),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
