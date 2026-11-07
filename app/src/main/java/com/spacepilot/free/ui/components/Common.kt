@@ -99,20 +99,20 @@ fun SectionHeader(
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.fillMaxWidth()
         )
         if (action != null) {
-            Spacer(Modifier.width(8.dp))
-            action()
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                action()
+            }
         }
     }
 }

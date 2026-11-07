@@ -290,7 +290,7 @@ fun LargeFilesScreen(
                     }
                 }
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = stringResource(
                                 R.string.large_found,
@@ -303,12 +303,17 @@ fun LargeFilesScreen(
                             ),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(Modifier.width(10.dp))
                         if (selectedFiles.isNotEmpty()) {
-                            Button(onClick = { selected = emptySet() }) {
-                                Text(stringResource(R.string.action_clear_selection))
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Button(onClick = { selected = emptySet() }) {
+                                    Text(stringResource(R.string.action_clear_selection))
+                                }
                             }
                         }
                     }

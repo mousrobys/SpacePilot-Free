@@ -191,20 +191,20 @@ private fun IdleScanCard(
                 )
             }
             Spacer(Modifier.height(18.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = onScan,
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                         containerColor = Teal,
                         contentColor = Color(0xFF002C2A)
                     ),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(stringResource(R.string.scan_start))
                 }
                 OutlinedButton(
                     onClick = onPickFolder,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Outlined.Folder, contentDescription = null, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(6.dp))
@@ -333,11 +333,11 @@ private fun CompletedScanCard(summary: ScanSummary, onResults: () -> Unit, onSca
                 )
             }
             Spacer(Modifier.height(18.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = onResults, modifier = Modifier.weight(1f)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onResults, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.scan_view_results))
                 }
-                OutlinedButton(onClick = onScan, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.scan_restart))
                 }
             }

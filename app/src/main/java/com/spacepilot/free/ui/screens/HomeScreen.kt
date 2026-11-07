@@ -358,52 +358,56 @@ private fun FolderAccessCard(connected: Boolean, onPickFolder: () -> Unit) {
             MaterialTheme.colorScheme.surface
         }
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Teal.copy(alpha = 0.13f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (connected) Icons.Outlined.VerifiedUser else Icons.Outlined.FolderOpen,
-                    contentDescription = null,
-                    tint = Teal,
-                    modifier = Modifier.size(23.dp)
-                )
-            }
-            Spacer(Modifier.width(13.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (connected) {
-                        stringResource(R.string.home_access_connected)
-                    } else {
-                        stringResource(R.string.home_access_title)
-                    },
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = if (connected) {
-                        stringResource(R.string.home_access_connected_message)
-                    } else {
-                        stringResource(R.string.home_access_message)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            TextButton(onClick = onPickFolder) {
-                Text(
-                    stringResource(
-                        if (connected) R.string.home_access_change else R.string.home_access_connect
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Teal.copy(alpha = 0.13f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (connected) Icons.Outlined.VerifiedUser else Icons.Outlined.FolderOpen,
+                        contentDescription = null,
+                        tint = Teal,
+                        modifier = Modifier.size(23.dp)
                     )
-                )
+                }
+                Spacer(Modifier.width(13.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (connected) {
+                            stringResource(R.string.home_access_connected)
+                        } else {
+                            stringResource(R.string.home_access_title)
+                        },
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = if (connected) {
+                            stringResource(R.string.home_access_connected_message)
+                        } else {
+                            stringResource(R.string.home_access_message)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onPickFolder) {
+                    Text(
+                        stringResource(
+                            if (connected) R.string.home_access_change else R.string.home_access_connect
+                        )
+                    )
+                }
             }
         }
     }
@@ -422,39 +426,40 @@ private fun ScanActionCard(onScan: () -> Unit) {
             )
             .border(1.dp, Teal.copy(alpha = 0.25f), MaterialTheme.shapes.extraLarge)
     ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Teal.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.Radar,
-                    contentDescription = null,
-                    tint = Teal,
-                    modifier = Modifier.size(30.dp)
-                )
+        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Teal.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Outlined.Radar,
+                        contentDescription = null,
+                        tint = Teal,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.quick_scan),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFFF0FBFF)
+                    )
+                    Text(
+                        text = stringResource(R.string.quick_scan_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFA9C6D7)
+                    )
+                }
             }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.quick_scan),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFFF0FBFF)
-                )
-                Text(
-                    text = stringResource(R.string.quick_scan_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFA9C6D7)
-                )
-            }
+            Spacer(Modifier.height(14.dp))
             Button(
                 onClick = onScan,
+                modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Teal,
                     contentColor = Color(0xFF002C2A)
@@ -712,23 +717,20 @@ private fun LastScanCard(summary: ScanSummary?, onResults: () -> Unit, onScan: (
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onResults) {
-                        Text(stringResource(R.string.home_view_results))
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = if (summary.usedFolderAccess) {
-                            stringResource(R.string.results_folder_access)
-                        } else {
-                            stringResource(R.string.results_media_only)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.weight(1f)
-                    )
+                TextButton(onClick = onResults) {
+                    Text(stringResource(R.string.home_view_results))
                 }
+                Text(
+                    text = if (summary.usedFolderAccess) {
+                        stringResource(R.string.results_folder_access)
+                    } else {
+                        stringResource(R.string.results_media_only)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

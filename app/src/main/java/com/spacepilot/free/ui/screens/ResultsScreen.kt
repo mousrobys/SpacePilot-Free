@@ -191,14 +191,11 @@ fun ResultsScreen(
                     InaccessibleBlock(summary = summary)
                 }
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(onClick = onScan, modifier = Modifier.weight(1f)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(R.string.results_rescan))
                         }
-                        OutlinedButton(onClick = onHome, modifier = Modifier.weight(1f)) {
+                        OutlinedButton(onClick = onHome, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(R.string.results_home))
                         }
                     }
@@ -235,18 +232,19 @@ private fun SummaryHero(summary: ScanSummary) {
                     color = Color(0xFFF0FBFF),
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (summary.usedFolderAccess) {
-                        stringResource(R.string.results_folder_access)
-                    } else {
-                        stringResource(R.string.results_media_only)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFA9C7D8),
-                    textAlign = TextAlign.End
-                )
             }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (summary.usedFolderAccess) {
+                    stringResource(R.string.results_folder_access)
+                } else {
+                    stringResource(R.string.results_media_only)
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFA9C7D8),
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(30.dp)) {
                 StatBlock(
@@ -382,9 +380,10 @@ private fun DuplicateSummary(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
                     )
-                    Button(onClick = onAnalyzeDuplicates) {
-                        Text(stringResource(R.string.results_analyze_duplicates))
-                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onAnalyzeDuplicates, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.results_analyze_duplicates))
                 }
             } else if (summary.duplicateGroups.isEmpty()) {
                 Text(

@@ -344,7 +344,7 @@ private fun AnalyzeCard(scannedFileCount: Int, onAnalyze: () -> Unit, onScan: ()
                 color = androidx.compose.ui.graphics.Color(0xFFA9C7D8)
             )
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = onAnalyze,
                     enabled = scannedFileCount > 1,
@@ -352,11 +352,11 @@ private fun AnalyzeCard(scannedFileCount: Int, onAnalyze: () -> Unit, onScan: ()
                         containerColor = Teal,
                         contentColor = androidx.compose.ui.graphics.Color(0xFF002C2A)
                     ),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(stringResource(R.string.action_continue))
                 }
-                OutlinedButton(onClick = onScan, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.action_scan))
                 }
             }

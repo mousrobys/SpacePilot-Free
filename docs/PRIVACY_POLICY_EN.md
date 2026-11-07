@@ -1,7 +1,7 @@
 # SpacePilot Free Privacy Policy
 
 **Effective date:** October 29, 2026
-**App version:** 1.2.1
+**App version:** 1.2.2
 **Developer:** mousrobys
 **Contact:** fandiplegend@gmail.com
 
@@ -99,4 +99,4 @@ Privacy questions: fandiplegend@gmail.com.
 
 ---
 
-_This document is current for version 1.2.1 and must be hosted at a public URL._
+_This document is current for version 1.2.2 and must be hosted at a public URL._
